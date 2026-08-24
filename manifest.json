@@ -1,7 +1,7 @@
 {
   "name": "C2T 중국어 플레이어",
   "short_name": "C2T",
-  "start_url": "./cplayer.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#030712",
   "theme_color": "#030712",
