@@ -1,0 +1,17 @@
+{
+  "name": "C2T 중국어 플레이어",
+  "short_name": "C2T",
+  "start_url": "./cplayer.html",
+  "display": "standalone",
+  "background_color": "#030712",
+  "theme_color": "#030712",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3845/3845868.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
