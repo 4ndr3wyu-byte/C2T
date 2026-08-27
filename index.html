@@ -1,689 +1,477 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3845/3845868.png">
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./service-worker.js');
-  }
-</script>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>C2T 중국어 학습 플레이어</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chinese Shadowing Player</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root {
+      --bg-color: #121214;
+      --sidebar-bg: #1a1a1e;
+      --card-bg: #202026;
+      --text-main: #f0f0f5;
+      --text-sub: #a0a0b0;
+      --text-played: #555562;
+      --accent: #4f46e5;
+      --accent-hover: #4338ca;
+      --active-item: #2d2b52;
+      --pinyin-color: #38bdf8;
+      --korean-color: #cbd5e1;
+      --border-color: #2c2c35;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
     body {
-      background-color: #030712;
-      color: #f8fafc;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
       height: 100vh;
-      width: 100vw;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
       overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      user-select: none;
     }
-    
-    /* 상단 80% 자막 뷰 */
-    #lyrics-container {
-      height: 80%;
-      overflow-y: auto;
-      padding: 24px 20px 60px 20px;
+
+    /* 좌측 재생목록 사이드바 */
+    #sidebar {
+      width: 320px;
+      min-width: 280px;
+      background-color: var(--sidebar-bg);
+      border-right: 1px solid var(--border-color);
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      scroll-behavior: smooth;
-      -webkit-overflow-scrolling: touch;
-    }
-    #lyrics-container::-webkit-scrollbar { display: none; }
-
-    /* 자막 카드 스타일 */
-    .sentence-card {
-      padding: 16px 18px;
-      border-radius: 18px;
-      cursor: pointer;
-      opacity: 0.28;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      border: 1px solid transparent;
-      background-color: transparent;
-    }
-    .sentence-card.active {
-      opacity: 1;
-      background-color: #0f172a;
-      border-color: rgba(16, 185, 129, 0.45);
-      transform: scale(1.02);
-      box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.65);
-    }
-    .hanzi {
-      font-size: 1.45rem;
-      font-weight: 700;
-      color: #e2e8f0;
-      margin-bottom: 4px;
-      line-height: 1.35;
-      letter-spacing: 0.02em;
-    }
-    .sentence-card.active .hanzi {
-      color: #34d399;
-    }
-    .pinyin {
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #6ee7b7;
-      margin-bottom: 6px;
-    }
-    .sentence-card.active .pinyin {
-      color: #fcd34d;
-    }
-    .korean {
-      font-size: 0.85rem;
-      color: #94a3b8;
-      line-height: 1.4;
+      transition: all 0.3s ease;
     }
 
-    /* 토글에 따른 숨김 클래스 */
-    body.hide-hanzi .hanzi { display: none; }
-    body.hide-pinyin .pinyin { display: none; }
-    body.hide-korean .korean { display: none; }
-
-    /* 하단 20% 통합 컨트롤러 바 */
-    footer {
-      height: 20%;
-      min-height: 155px;
-      background-color: rgba(15, 23, 42, 0.96);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-top: 1px solid rgba(51, 65, 85, 0.6);
-      padding: 10px 20px 14px 20px;
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
       display: flex;
-      flex-direction: column;
       justify-content: space-between;
-      z-index: 20;
+      align-items: center;
     }
 
-    /* 옵션 바: 숨김 토글 & 배속 */
-    .option-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding-bottom: 4px;
-    }
-    .toggle-group {
-      display: flex;
-      gap: 6px;
-    }
-    .btn-toggle {
-      background-color: #1e293b;
-      border: 1px solid #334155;
-      color: #cbd5e1;
-      font-size: 0.72rem;
+    .sidebar-header h2 {
+      font-size: 16px;
       font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    .btn-toggle.active {
-      background-color: #10b981;
-      border-color: #10b981;
-      color: #030712;
-    }
-    .btn-speed {
-      background-color: #1e293b;
-      border: 1px solid #334155;
-      color: #34d399;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 0.75rem;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 6px;
-      cursor: pointer;
+      letter-spacing: 0.5px;
     }
 
-    /* 프로그레스 바 */
-    .progress-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .time-text {
-      font-size: 0.75rem;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      color: #94a3b8;
-      width: 38px;
-    }
-    .progress-bar-bg {
+    .playlist-container {
       flex: 1;
-      height: 6px;
-      background-color: #334155;
-      border-radius: 9999px;
-      overflow: hidden;
-      cursor: pointer;
-    }
-    #progress-bar {
-      height: 100%;
-      width: 0%;
-      background-color: #10b981;
-      border-radius: 9999px;
-      transition: width 0.1s linear;
+      overflow-y: auto;
+      padding: 8px;
     }
 
-    /* 제어 버튼 그룹 */
-    .controls {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 4px;
-    }
-    .btn-ctrl {
-      background: none;
-      border: none;
-      color: #94a3b8;
+    .playlist-item {
+      padding: 12px 14px;
+      border-radius: 8px;
+      margin-bottom: 6px;
       cursor: pointer;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 6px;
-      border-radius: 12px;
-      transition: all 0.15s ease;
+      flex-direction: column;
+      gap: 4px;
+      border: 1px solid transparent;
+      transition: background 0.2s, color 0.2s;
     }
-    .btn-ctrl:active { transform: scale(0.92); color: #34d399; }
-    .btn-play {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      background-color: #10b981;
-      color: #030712;
-      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
-    }
-    .btn-play:active { transform: scale(0.94); background-color: #34d399; }
 
-    /* 파일 정보 & 보조 메뉴 바 */
-    .footer-info {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: 0.72rem;
-      color: #64748b;
-      border-top: 1px solid rgba(30, 41, 59, 0.8);
-      padding-top: 4px;
+    .playlist-item:hover {
+      background-color: rgba(255, 255, 255, 0.05);
     }
-    .file-tag {
-      color: #cbd5e1;
-      font-family: ui-monospace, SFMono-Regular, monospace;
+
+    /* 현재 재생 중인 항목 */
+    .playlist-item.active {
+      background-color: var(--active-item);
+      border-color: var(--accent);
+      color: #fff !important;
+    }
+
+    /* 청취 완료된 항목 (흐린 색상 + 톤다운) */
+    .playlist-item.played {
+      color: var(--text-played);
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+
+    .playlist-item.played .item-title {
+      color: var(--text-played);
+    }
+
+    .item-title {
+      font-size: 14px;
+      font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 210px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    /* 재생목록 서랍 (Drawer) */
-    #playlist-drawer {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: 68%;
-      background-color: #0f172a;
-      border-top: 1px solid rgba(51, 65, 85, 0.8);
-      border-radius: 24px 24px 0 0;
-      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
-      z-index: 50;
-      transform: translateY(100%);
-      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    .item-status {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #2a2a35;
+      color: var(--text-sub);
+      width: fit-content;
+    }
+
+    .playlist-item.played .item-status {
+      background: #1e1e24;
+      color: #4b4b57;
+    }
+
+    /* 메인 플레이어 영역 */
+    #main-content {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 20px;
+      position: relative;
     }
-    #playlist-drawer.open { transform: translateY(0); }
-    .drawer-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(4px);
-      z-index: 40;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
-    }
-    .drawer-overlay.open { opacity: 1; pointer-events: auto; }
-    .drawer-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 12px;
-      border-bottom: 1px solid #1e293b;
-    }
-    .track-list {
+
+    #script-container {
       flex: 1;
       overflow-y: auto;
-      margin-top: 10px;
+      padding: 30px 40px 120px 40px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 16px;
     }
-    .track-item {
-      padding: 12px 16px;
+
+    .script-row {
+      background-color: var(--card-bg);
+      padding: 18px 22px;
       border-radius: 12px;
-      background-color: #1e293b;
+      border: 1px solid var(--border-color);
       cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .script-row:hover {
+      border-color: #3f3f4e;
+    }
+
+    .script-row.active {
+      border-color: var(--accent);
+      background-color: #232238;
+      box-shadow: 0 4px 20px rgba(79, 70, 229, 0.15);
+    }
+
+    .pinyin-text {
+      font-size: 15px;
+      color: var(--pinyin-color);
+      margin-bottom: 4px;
+      min-height: 18px;
+    }
+
+    .hanzi-text {
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    .korean-text {
+      font-size: 14px;
+      color: var(--korean-color);
+      line-height: 1.3;
+    }
+
+    /* 하단 고정 컨트롤바 */
+    #bottom-bar {
+      height: 80px;
+      background-color: var(--sidebar-bg);
+      border-top: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 0.85rem;
-      color: #cbd5e1;
-      transition: background 0.15s;
+      padding: 0 24px;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
     }
-    .track-item.playing {
-      background-color: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.4);
-      color: #34d399;
-      font-weight: 600;
+
+    .audio-wrapper {
+      flex: 1;
+      max-width: 650px;
+    }
+
+    audio {
+      width: 100%;
+      height: 40px;
+      outline: none;
+    }
+
+    .action-group {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      background-color: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background-color: var(--accent-hover);
+    }
+
+    .empty-state {
+      margin: auto;
+      text-align: center;
+      color: var(--text-sub);
     }
   </style>
 </head>
 <body>
 
-  <!-- 상단 80%: 순수 학습 자막 뷰 -->
-  <main id="lyrics-container">
-    <div id="empty-notice" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #64748b; text-align: center; gap: 8px;">
-      <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
-      <p style="font-size: 0.95rem; font-weight: 500; color: #94a3b8;">로드된 학습 파일이 없습니다.</p>
-      <p style="font-size: 0.75rem;">하단의 [📂 파일불러오기]를 눌러 MP3와 JSON을 선택하세요.</p>
+  <!-- 좌측 재생목록 사이드바 -->
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h2>학습 목록 (<span id="playlist-count">0</span>)</h2>
     </div>
-  </main>
-
-  <!-- 하단 20%: 통합 컨트롤 바 -->
-  <footer>
-    <!-- 학습 옵션 (토글 & 배속) -->
-    <div class="option-bar">
-      <div class="toggle-group">
-        <button id="toggle-hanzi" class="btn-toggle active">한자</button>
-        <button id="toggle-pinyin" class="btn-toggle active">병음</button>
-        <button id="toggle-korean" class="btn-toggle active">해석</button>
-      </div>
-      <button id="btn-speed" class="btn-speed">1.0x</button>
-    </div>
-
-    <!-- 프로그레스 바 -->
-    <div class="progress-wrapper">
-      <span id="current-time" class="time-text" style="text-align: right;">0:00</span>
-      <div id="progress-bar-container" class="progress-bar-bg">
-        <div id="progress-bar"></div>
-      </div>
-      <span id="duration-time" class="time-text">0:00</span>
-    </div>
-
-    <!-- 재생 제어 버튼 -->
-    <div class="controls">
-      <button id="btn-open-drawer" class="btn-ctrl" title="재생목록">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
-      </button>
-
-      <button id="btn-rewind" class="btn-ctrl" style="font-weight: bold; font-size: 0.85rem;" title="15초 뒤로">
-        ⏪ -15s
-      </button>
-      
-      <button id="btn-play-pause" class="btn-ctrl btn-play">
-        <svg id="icon-play" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-        <svg id="icon-pause" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="display: none;"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-      </button>
-
-      <button id="btn-forward" class="btn-ctrl" style="font-weight: bold; font-size: 0.85rem;" title="15초 앞으로">
-        +15s ⏩
-      </button>
-      
-      <button id="btn-next" class="btn-ctrl" title="다음 트랙">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-      </button>
-    </div>
-
-    <!-- 파일 정보 및 파일 추가 -->
-    <div class="footer-info">
-      <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
-        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981;"></span>
-        <span id="track-filename" class="file-tag">선택된 파일 없음</span>
-      </div>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <span id="playlist-count" style="font-family: monospace; font-size: 0.75rem;">0 / 0</span>
-        <label style="color: #10b981; font-weight: 700; cursor: pointer;">
-          📂 파일불러오기
-          <input type="file" id="file-input" multiple accept=".mp3,.m4a,.wav,.ogg,.json,audio/*" style="display: none;">
-        </label>
+    <div class="playlist-container" id="playlist-items">
+      <div class="empty-state" style="padding-top: 50px;">
+        폴더를 선택해주세요.
       </div>
     </div>
-  </footer>
-
-  <!-- 재생목록 슬라이드 서랍 (Drawer) -->
-  <div id="drawer-overlay" class="drawer-overlay"></div>
-  <div id="playlist-drawer">
-    <div class="drawer-header">
-      <h3 style="font-size: 1rem; font-weight: 700; color: #f8fafc;">📋 학습 재생목록</h3>
-      <button id="btn-close-drawer" style="background: none; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">✕</button>
-    </div>
-    <div id="drawer-track-list" class="track-list"></div>
   </div>
 
-  <audio id="audio-player" preload="auto"></audio>
+  <!-- 우측 메인 영역 -->
+  <div id="main-content">
+    <div id="script-container">
+      <div class="empty-state">
+        우측 하단의 [재생목록] 버튼을 눌러 학습 폴더를 선택하세요.
+      </div>
+    </div>
+
+    <!-- 하단 컨트롤바 -->
+    <div id="bottom-bar">
+      <div class="audio-wrapper">
+        <audio id="audio-player" controls></audio>
+      </div>
+
+      <div class="action-group">
+        <button class="btn" onclick="document.getElementById('folder-input').click()">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+          </svg>
+          재생목록
+        </button>
+        <input type="file" id="folder-input" webkitdirectory directory multiple style="display: none;" />
+      </div>
+    </div>
+  </div>
 
   <script>
-    let playlist = [];
-    let currentTrackIndex = 0;
-    let currentSentenceIndex = -1;
-    const speeds = [0.75, 0.9, 1.0, 1.15, 1.25, 1.5];
-    let speedIndex = 2; // 기본 1.0x
+    let playlist = []; // { name, mp3File, jsonFile, played: boolean }
+    let currentEpisodeIndex = -1;
+    let currentScripts = [];
 
-    const audio = document.getElementById('audio-player');
-    const lyricsContainer = document.getElementById('lyrics-container');
-    const btnPlayPause = document.getElementById('btn-play-pause');
-    const iconPlay = document.getElementById('icon-play');
-    const iconPause = document.getElementById('icon-pause');
-    const btnRewind = document.getElementById('btn-rewind');
-    const btnForward = document.getElementById('btn-forward');
-    const btnNext = document.getElementById('btn-next');
-    const btnSpeed = document.getElementById('btn-speed');
-    const progressBar = document.getElementById('progress-bar');
-    const progressContainer = document.getElementById('progress-bar-container');
-    const currentTimeEl = document.getElementById('current-time');
-    const durationTimeEl = document.getElementById('duration-time');
-    const trackFilenameEl = document.getElementById('track-filename');
-    const playlistCountEl = document.getElementById('playlist-count');
-    const fileInput = document.getElementById('file-input');
+    const audioPlayer = document.getElementById("audio-player");
+    const scriptContainer = document.getElementById("script-container");
+    const playlistItemsContainer = document.getElementById("playlist-items");
+    const playlistCountLabel = document.getElementById("playlist-count");
+    const folderInput = document.getElementById("folder-input");
 
-    // 토글 버튼
-    const toggleHanzi = document.getElementById('toggle-hanzi');
-    const togglePinyin = document.getElementById('toggle-pinyin');
-    const toggleKorean = document.getElementById('toggle-korean');
+    const STORAGE_PLAYED_KEY = "cplayer_played_records";
+    const STORAGE_LAST_EPISODE_KEY = "cplayer_last_episode";
+    const STORAGE_LAST_TIME_KEY = "cplayer_last_time";
 
-    // 서랍 엘리먼트
-    const btnOpenDrawer = document.getElementById('btn-open-drawer');
-    const btnCloseDrawer = document.getElementById('btn-close-drawer');
-    const playlistDrawer = document.getElementById('playlist-drawer');
-    const drawerOverlay = document.getElementById('drawer-overlay');
-    const drawerTrackList = document.getElementById('drawer-track-list');
-
-    // 파일명에서 특수문자/공백/해시태그를 제거하고 순수 영문/숫자/한글/한자만 추출하는 정규화 함수
-    function normalizeKey(str) {
-      return str
-        .toLowerCase()
-        .replace(/#\S+/g, '') // #dailychinese 같은 해시태그 제거
-        .replace(/\[.*?\]/g, '') // [Learn Chinese with Pipo] 같은 채널 대괄호 제거
-        .replace(/[^a-z0-9가-힣\u4e00-\u9fa5]/g, ''); // 특수기호, 공백, 하이픈 전부 제거
+    function getPlayedRecords() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_PLAYED_KEY)) || {};
+      } catch (e) {
+        return {};
+      }
     }
 
-    // --- 파일 다중 선택 및 초강력 정규화 매핑 ---
-    fileInput.addEventListener('change', async (e) => {
-      const files = Array.from(e.target.files);
-      if (files.length === 0) return;
+    function setPlayed(name) {
+      const records = getPlayedRecords();
+      records[name] = true;
+      localStorage.setItem(STORAGE_PLAYED_KEY, JSON.stringify(records));
+    }
 
-      const audioFiles = [];
-      const jsonFiles = [];
+    // 폴더 선택 처리
+    folderInput.addEventListener("change", async (event) => {
+      const files = Array.from(event.target.files);
+      if (!files.length) return;
 
-      files.forEach(f => {
-        const ext = f.name.substring(f.name.lastIndexOf('.') + 1).toLowerCase();
-        if (['mp3', 'm4a', 'wav', 'ogg'].includes(ext)) audioFiles.push(f);
-        else if (ext === 'json') jsonFiles.push(f);
+      const mp3Map = new Map();
+      const jsonMap = new Map();
+
+      files.forEach((file) => {
+        const ext = file.name.split(".").pop().toLowerCase();
+        const baseName = file.name.substring(0, file.name.lastIndexOf("."));
+        if (ext === "mp3") mp3Map.set(baseName, file);
+        if (ext === "json") jsonMap.set(baseName, file);
       });
 
-      // 1. 모든 JSON 파일 파싱 및 정규화 키로 저장
-      const parsedJsonMap = {};
-      await Promise.all(
-        jsonFiles.map(async (jf) => {
-          try {
-            const rawBase = jf.name.substring(0, jf.name.lastIndexOf('.'));
-            const normKey = normalizeKey(rawBase);
-            const text = await jf.text();
-            const data = JSON.parse(text);
+      const playedRecords = getPlayedRecords();
+      playlist = [];
 
-            // 비어있는 배열([])이 아닌 실제 문장이 있는 경우만 등록
-            if (Array.isArray(data) && data.length > 0) {
-              parsedJsonMap[normKey] = data;
-              parsedJsonMap[rawBase] = data; // 원본 이름도 보조 등록
-            } else {
-              console.warn('빈 JSON 파일 감지됨:', jf.name);
-            }
-          } catch (err) {
-            console.error('JSON 파싱 오류:', jf.name, err);
-          }
-        })
-      );
-
-      // 2. 오디오 파일과 1:1 매칭
-      const newTracks = [];
-      const availableJsonKeys = Object.keys(parsedJsonMap);
-
-      audioFiles.sort((a, b) => a.name.localeCompare(b.name)).forEach(af => {
-        const rawBase = af.name.substring(0, af.name.lastIndexOf('.'));
-        const normKey = normalizeKey(rawBase);
-
-        // 1순위: 정규화 키 일치, 2순위: 원본명 일치, 3순위: 단일 파일인 경우
-        let matchedSentences = parsedJsonMap[normKey] || parsedJsonMap[rawBase];
-        
-        if (!matchedSentences && audioFiles.length === 1 && availableJsonKeys.length > 0) {
-          matchedSentences = parsedJsonMap[availableJsonKeys[0]];
+      mp3Map.forEach((mp3File, name) => {
+        if (jsonMap.has(name)) {
+          playlist.push({
+            name: name,
+            mp3File: mp3File,
+            jsonFile: jsonMap.get(name),
+            played: !!playedRecords[name]
+          });
         }
-
-        newTracks.push({
-          title: rawBase.replace(/\[.*?\]\s*/g, ''), // 제목에서 채널 대괄호 정리
-          filename: af.name,
-          audioUrl: URL.createObjectURL(af),
-          sentences: matchedSentences || []
-        });
       });
 
-      if (newTracks.length > 0) {
-        playlist = newTracks;
-        loadTrack(0);
-        audio.play().catch(() => {});
-      } else {
-        alert('지원되는 음원 파일(.mp3, .m4a)을 선택해 주세요.');
+      playlist.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+      playlistCountLabel.innerText = playlist.length;
+      renderPlaylistUI();
+
+      if (playlist.length > 0) {
+        const lastEpisode = localStorage.getItem(STORAGE_LAST_EPISODE_KEY);
+        const lastTime = parseFloat(localStorage.getItem(STORAGE_LAST_TIME_KEY) || "0");
+
+        let targetIndex = playlist.findIndex((item) => item.name === lastEpisode);
+        if (targetIndex === -1) targetIndex = 0;
+
+        loadEpisode(targetIndex, false, lastTime);
       }
     });
 
-    // --- 2. 트랙 로드 및 Media Session API 연동 ---
-    function loadTrack(index) {
-      if (playlist.length === 0) return;
-      if (index >= playlist.length) index = 0;
+    // 좌측 재생목록 렌더링
+    function renderPlaylistUI() {
+      playlistItemsContainer.innerHTML = "";
 
-      currentTrackIndex = index;
-      currentSentenceIndex = -1;
-      const track = playlist[currentTrackIndex];
+      playlist.forEach((item, index) => {
+        const div = document.createElement("div");
+        div.className = `playlist-item ${item.played ? "played" : ""} ${index === currentEpisodeIndex ? "active" : ""}`;
+        div.onclick = () => loadEpisode(index, true);
 
-      audio.src = track.audioUrl;
-      audio.playbackRate = speeds[speedIndex];
-      trackFilenameEl.textContent = track.filename;
-      playlistCountEl.textContent = `${currentTrackIndex + 1} / ${playlist.length}`;
-
-      renderLyrics(track.sentences);
-      updateDrawerList();
-      updateMediaSession(track);
-    }
-
-    // --- 3. iOS 잠금화면 / 제어센터 연동 (Media Session) ---
-    function updateMediaSession(track) {
-      if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: track.title,
-          artist: 'C2T 중국어 학습',
-          album: `트랙 ${currentTrackIndex + 1} / ${playlist.length}`
-        });
-
-        navigator.mediaSession.setActionHandler('play', () => audio.play());
-        navigator.mediaSession.setActionHandler('pause', () => audio.pause());
-        navigator.mediaSession.setActionHandler('seekbackward', () => {
-          audio.currentTime = Math.max(0, audio.currentTime - 15);
-        });
-        navigator.mediaSession.setActionHandler('seekforward', () => {
-          audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 15);
-        });
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-          if (playlist.length > 0) {
-            loadTrack(currentTrackIndex > 0 ? currentTrackIndex - 1 : playlist.length - 1);
-            audio.play();
-          }
-        });
-        navigator.mediaSession.setActionHandler('nexttrack', () => {
-          if (playlist.length > 0) {
-            loadTrack(currentTrackIndex + 1);
-            audio.play();
-          }
-        });
-      }
-    }
-
-    // --- 4. 자막 렌더링 ---
-    function renderLyrics(sentences) {
-      lyricsContainer.innerHTML = '';
-      if (!sentences || sentences.length === 0) {
-        lyricsContainer.innerHTML = `
-          <div style="height: 100%; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 0.85rem;">
-            연결된 자막 JSON이 없습니다. (음원명과 동일한 .json 파일 필요)
-          </div>`;
-        return;
-      }
-
-      sentences.forEach((s) => {
-        const item = document.createElement('div');
-        item.id = `sentence-${s.id}`;
-        item.className = 'sentence-card';
-        item.innerHTML = `
-          <div class="hanzi">${s.hanzi}</div>
-          <div class="pinyin">${s.pinyin}</div>
-          <div class="korean">${s.korean}</div>
-        `;
-        item.addEventListener('click', () => {
-          audio.currentTime = s.start + 0.05;
-          if (audio.paused) audio.play();
-        });
-        lyricsContainer.appendChild(item);
-      });
-    }
-
-    // --- 5. 정확한 노래방 하이라이트 ---
-    function updateActiveSentence(curTime) {
-      if (playlist.length === 0) return;
-      const sentences = playlist[currentTrackIndex].sentences;
-      const matchIndex = sentences.findIndex(s => curTime >= s.start && curTime < s.end);
-
-      if (matchIndex !== currentSentenceIndex) {
-        if (currentSentenceIndex !== -1) {
-          const prevEl = document.getElementById(`sentence-${currentSentenceIndex}`);
-          if (prevEl) prevEl.classList.remove('active');
-        }
-
-        currentSentenceIndex = matchIndex;
-
-        if (currentSentenceIndex !== -1) {
-          const activeEl = document.getElementById(`sentence-${currentSentenceIndex}`);
-          if (activeEl) {
-            activeEl.classList.add('active');
-            activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }
-      }
-    }
-
-    // --- 6. 서랍 메뉴 관리 ---
-    function updateDrawerList() {
-      drawerTrackList.innerHTML = '';
-      playlist.forEach((track, idx) => {
-        const div = document.createElement('div');
-        div.className = `track-item ${idx === currentTrackIndex ? 'playing' : ''}`;
+        const checkMark = item.played ? "✔ " : "";
         div.innerHTML = `
-          <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 85%;">
-            ${idx + 1}. ${track.title}
-          </span>
-          <span style="font-size: 0.75rem; color: #64748b;">${idx === currentTrackIndex ? '재생중' : ''}</span>
+          <div class="item-title" title="${item.name}">${checkMark}${item.name}</div>
+          <div class="item-status">${item.played ? "학습 완료" : "미학습"}</div>
         `;
-        div.addEventListener('click', () => {
-          loadTrack(idx);
-          audio.play();
-          closeDrawer();
-        });
-        drawerTrackList.appendChild(div);
+        playlistItemsContainer.appendChild(div);
       });
     }
 
-    function openDrawer() { updateDrawerList(); playlistDrawer.classList.add('open'); drawerOverlay.classList.add('open'); }
-    function closeDrawer() { playlistDrawer.classList.remove('open'); drawerOverlay.classList.remove('open'); }
+    // 에피소드 로드 및 준비
+    async function loadEpisode(index, autoPlay = true, seekTime = 0) {
+      if (index < 0 || index >= playlist.length) return;
+      currentEpisodeIndex = index;
+      const episode = playlist[index];
 
-    btnOpenDrawer.addEventListener('click', openDrawer);
-    btnCloseDrawer.addEventListener('click', closeDrawer);
-    drawerOverlay.addEventListener('click', closeDrawer);
+      // 마지막 청취 위치 저장
+      localStorage.setItem(STORAGE_LAST_EPISODE_KEY, episode.name);
 
-    // --- 7. 배속 조절 ---
-    btnSpeed.addEventListener('click', () => {
-      speedIndex = (speedIndex + 1) % speeds.length;
-      const currentSpeed = speeds[speedIndex];
-      audio.playbackRate = currentSpeed;
-      btnSpeed.textContent = `${currentSpeed}x`;
-    });
+      renderPlaylistUI();
 
-    // --- 8. 한자/병음/해석 숨김 토글 ---
-    function bindToggle(btn, className) {
-      btn.addEventListener('click', () => {
-        document.body.classList.toggle(className);
-        btn.classList.toggle('active', !document.body.classList.contains(className));
-      });
-    }
-    bindToggle(toggleHanzi, 'hide-hanzi');
-    bindToggle(togglePinyin, 'hide-pinyin');
-    bindToggle(toggleKorean, 'hide-korean');
-
-    // --- 9. 오디오 제어 핸들러 ---
-    function formatTime(sec) {
-      if (isNaN(sec)) return "0:00";
-      const m = Math.floor(sec / 60);
-      const s = Math.floor(sec % 60);
-      return `${m}:${s < 10 ? '0' : ''}${s}`;
-    }
-
-    btnPlayPause.addEventListener('click', () => {
-      if (playlist.length === 0) {
-        alert("먼저 [📂 파일불러오기]를 눌러 학습할 파일을 선택해 주세요.");
-        return;
+      // MP3 연결
+      audioPlayer.src = URL.createObjectURL(episode.mp3File);
+      if (seekTime > 0) {
+        audioPlayer.currentTime = seekTime;
       }
-      audio.paused ? audio.play() : audio.pause();
+
+      // JSON 자막 파싱
+      const jsonText = await episode.jsonFile.text();
+      try {
+        currentScripts = JSON.parse(jsonText);
+      } catch (e) {
+        currentScripts = [];
+      }
+
+      renderScriptsUI();
+
+      if (autoPlay) {
+        audioPlayer.play().catch(() => {});
+      }
+    }
+
+    // 메인 스크립트 자막 렌더링
+    function renderScriptsUI() {
+      scriptContainer.innerHTML = "";
+
+      currentScripts.forEach((item, idx) => {
+        const row = document.createElement("div");
+        row.className = "script-row";
+        row.id = `script-${idx}`;
+        row.onclick = () => {
+          audioPlayer.currentTime = item.start;
+          audioPlayer.play();
+        };
+
+        row.innerHTML = `
+          <div class="pinyin-text">${item.pinyin || ""}</div>
+          <div class="hanzi-text">${item.hanzi || ""}</div>
+          <div class="korean-text">${item.korean || ""}</div>
+        `;
+        scriptContainer.appendChild(row);
+      });
+    }
+
+    // 타임스탬프 동기화 및 학습 완료 추적
+    audioPlayer.addEventListener("timeupdate", () => {
+      const curTime = audioPlayer.currentTime;
+      localStorage.setItem(STORAGE_LAST_TIME_KEY, curTime);
+
+      // 전체 분량의 80% 이상 청취 시 청취 완료로 표시
+      if (audioPlayer.duration && curTime / audioPlayer.duration > 0.8) {
+        const episode = playlist[currentEpisodeIndex];
+        if (episode && !episode.played) {
+          episode.played = true;
+          setPlayed(episode.name);
+          renderPlaylistUI();
+        }
+      }
+
+      // 싱크 하이라이트
+      let activeIdx = -1;
+      for (let i = 0; i < currentScripts.length; i++) {
+        if (curTime >= currentScripts[i].start && curTime <= currentScripts[i].end) {
+          activeIdx = i;
+          break;
+        }
+      }
+
+      document.querySelectorAll(".script-row").forEach((el, i) => {
+        if (i === activeIdx) {
+          if (!el.classList.contains("active")) {
+            el.classList.add("active");
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        } else {
+          el.classList.remove("active");
+        }
+      });
     });
 
-    audio.addEventListener('play', () => {
-      iconPlay.style.display = 'none';
-      iconPause.style.display = 'block';
-    });
+    // 곡 종료 시 다음 곡 자동 재생
+    audioPlayer.addEventListener("ended", () => {
+      const episode = playlist[currentEpisodeIndex];
+      if (episode) {
+        episode.played = true;
+        setPlayed(episode.name);
+        renderPlaylistUI();
+      }
 
-    audio.addEventListener('pause', () => {
-      iconPlay.style.display = 'block';
-      iconPause.style.display = 'none';
-    });
-
-    btnRewind.addEventListener('click', () => audio.currentTime = Math.max(0, audio.currentTime - 15));
-    btnForward.addEventListener('click', () => audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 15));
-
-    btnNext.addEventListener('click', () => {
-      if (playlist.length > 0) { loadTrack(currentTrackIndex + 1); audio.play(); }
-    });
-
-    audio.addEventListener('ended', () => {
-      if (playlist.length > 0) { loadTrack(currentTrackIndex + 1); audio.play(); }
-    });
-
-    audio.addEventListener('timeupdate', () => {
-      const cur = audio.currentTime;
-      const dur = audio.duration || 0;
-      currentTimeEl.textContent = formatTime(cur);
-      if (dur > 0) progressBar.style.width = `${(cur / dur) * 100}%`;
-      updateActiveSentence(cur);
-    });
-
-    audio.addEventListener('loadedmetadata', () => {
-      durationTimeEl.textContent = formatTime(audio.duration);
-    });
-
-    progressContainer.addEventListener('click', (e) => {
-      const rect = progressContainer.getBoundingClientRect();
-      if (audio.duration) audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+      if (currentEpisodeIndex + 1 < playlist.length) {
+        loadEpisode(currentEpisodeIndex + 1, true);
+      }
     });
   </script>
 </body>
