@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Chinese Shadowing Player</title>
   <style>
     :root {
@@ -11,7 +11,7 @@
       --card-bg: #202026;
       --text-main: #f0f0f5;
       --text-sub: #a0a0b0;
-      --text-played: #555562;
+      --text-played: #606070;
       --accent: #4f46e5;
       --accent-hover: #4338ca;
       --active-item: #2d2b52;
@@ -25,6 +25,7 @@
       margin: 0;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
@@ -33,17 +34,19 @@
       display: flex;
       height: 100vh;
       overflow: hidden;
+      position: relative;
     }
 
-    /* 좌측 재생목록 사이드바 */
+    /* 좌측 사이드바 */
     #sidebar {
       width: 320px;
-      min-width: 280px;
+      min-width: 300px;
       background-color: var(--sidebar-bg);
       border-right: 1px solid var(--border-color);
       display: flex;
       flex-direction: column;
-      transition: all 0.3s ease;
+      z-index: 100;
+      transition: transform 0.3s ease;
     }
 
     .sidebar-header {
@@ -57,7 +60,15 @@
     .sidebar-header h2 {
       font-size: 16px;
       font-weight: 600;
-      letter-spacing: 0.5px;
+    }
+
+    .close-btn {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text-main);
+      font-size: 20px;
+      cursor: pointer;
     }
 
     .playlist-container {
@@ -82,14 +93,12 @@
       background-color: rgba(255, 255, 255, 0.05);
     }
 
-    /* 현재 재생 중인 항목 */
     .playlist-item.active {
       background-color: var(--active-item);
       border-color: var(--accent);
       color: #fff !important;
     }
 
-    /* 청취 완료된 항목 (흐린 색상 + 톤다운) */
     .playlist-item.played {
       color: var(--text-played);
       background-color: rgba(0, 0, 0, 0.2);
@@ -105,9 +114,6 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
 
     .item-status {
@@ -124,34 +130,50 @@
       color: #4b4b57;
     }
 
-    /* 메인 플레이어 영역 */
+    /* 메인 콘텐츠 영역 */
     #main-content {
       flex: 1;
       display: flex;
       flex-direction: column;
       position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .top-bar {
+      display: none;
+      padding: 12px 16px;
+      background-color: var(--sidebar-bg);
+      border-bottom: 1px solid var(--border-color);
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .top-bar .title {
+      font-size: 15px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 70%;
     }
 
     #script-container {
       flex: 1;
       overflow-y: auto;
-      padding: 30px 40px 120px 40px;
+      padding: 20px 20px 100px 20px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
     }
 
     .script-row {
       background-color: var(--card-bg);
-      padding: 18px 22px;
+      padding: 16px 18px;
       border-radius: 12px;
       border: 1px solid var(--border-color);
       cursor: pointer;
       transition: all 0.2s;
-    }
-
-    .script-row:hover {
-      border-color: #3f3f4e;
     }
 
     .script-row.active {
@@ -165,98 +187,147 @@
       color: var(--pinyin-color);
       margin-bottom: 4px;
       min-height: 18px;
+      word-break: break-word;
     }
 
     .hanzi-text {
-      font-size: 20px;
+      font-size: 19px;
       font-weight: 600;
       color: var(--text-main);
       margin-bottom: 6px;
       line-height: 1.4;
+      word-break: break-word;
     }
 
     .korean-text {
       font-size: 14px;
       color: var(--korean-color);
-      line-height: 1.3;
+      line-height: 1.4;
+      word-break: break-word;
     }
 
-    /* 하단 고정 컨트롤바 */
+    /* 하단 플레이어 컨트롤 */
     #bottom-bar {
-      height: 80px;
+      height: 76px;
       background-color: var(--sidebar-bg);
       border-top: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 24px;
+      padding: 0 16px;
       position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
+      gap: 10px;
     }
 
     .audio-wrapper {
       flex: 1;
-      max-width: 650px;
     }
 
     audio {
       width: 100%;
-      height: 40px;
+      height: 36px;
       outline: none;
-    }
-
-    .action-group {
-      display: flex;
-      gap: 12px;
     }
 
     .btn {
       background-color: var(--accent);
       color: #fff;
       border: none;
-      padding: 10px 18px;
+      padding: 8px 14px;
       border-radius: 8px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 500;
       display: flex;
       align-items: center;
-      gap: 8px;
-      transition: background 0.2s;
-    }
-
-    .btn:hover {
-      background-color: var(--accent-hover);
+      gap: 6px;
+      white-space: nowrap;
     }
 
     .empty-state {
       margin: auto;
       text-align: center;
       color: var(--text-sub);
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    /* 모바일 전용 UI */
+    @media (max-width: 768px) {
+      #sidebar {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 85%;
+        max-width: 320px;
+        transform: translateX(-100%);
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.5);
+      }
+
+      #sidebar.open {
+        transform: translateX(0);
+      }
+
+      .close-btn {
+        display: block;
+      }
+
+      .top-bar {
+        display: flex;
+      }
+
+      #script-container {
+        padding: 16px 14px 90px 14px;
+      }
+
+      .backdrop {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 90;
+      }
+
+      .backdrop.open {
+        display: block;
+      }
     }
   </style>
 </head>
 <body>
 
-  <!-- 좌측 재생목록 사이드바 -->
+  <div class="backdrop" id="backdrop" onclick="toggleSidebar()"></div>
+
+  <!-- 사이드바 -->
   <div id="sidebar">
     <div class="sidebar-header">
       <h2>학습 목록 (<span id="playlist-count">0</span>)</h2>
+      <button class="close-btn" onclick="toggleSidebar()">✕</button>
     </div>
     <div class="playlist-container" id="playlist-items">
-      <div class="empty-state" style="padding-top: 50px;">
-        폴더를 선택해주세요.
+      <div class="empty-state">
+        [재생목록] 버튼을 눌러 학습 파일들을 선택하세요.
       </div>
     </div>
   </div>
 
-  <!-- 우측 메인 영역 -->
+  <!-- 메인 영역 -->
   <div id="main-content">
+    <div class="top-bar">
+      <button class="btn" style="padding: 6px 10px;" onclick="toggleSidebar()">☰ 목록</button>
+      <div class="title" id="current-title">재생할 파일을 선택하세요</div>
+    </div>
+
     <div id="script-container">
       <div class="empty-state">
-        우측 하단의 [재생목록] 버튼을 눌러 학습 폴더를 선택하세요.
+        우측 하단의 [재생목록] 버튼을 눌러<br>PC의 폴더 또는 파일(MP3, JSON)을 선택해 주세요.
       </div>
     </div>
 
@@ -267,19 +338,20 @@
       </div>
 
       <div class="action-group">
-        <button class="btn" onclick="document.getElementById('folder-input').click()">
-          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button class="btn" onclick="openFilePicker()">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
           </svg>
           재생목록
         </button>
-        <input type="file" id="folder-input" webkitdirectory directory multiple style="display: none;" />
+        <!-- PC용 폴더 선택 & 모바일용 다중 파일 선택 통합 인풋 -->
+        <input type="file" id="file-input" multiple webkitdirectory directory style="display: none;" />
       </div>
     </div>
   </div>
 
   <script>
-    let playlist = []; // { name, mp3File, jsonFile, played: boolean }
+    let playlist = [];
     let currentEpisodeIndex = -1;
     let currentScripts = [];
 
@@ -287,11 +359,29 @@
     const scriptContainer = document.getElementById("script-container");
     const playlistItemsContainer = document.getElementById("playlist-items");
     const playlistCountLabel = document.getElementById("playlist-count");
-    const folderInput = document.getElementById("folder-input");
+    const currentTitleLabel = document.getElementById("current-title");
+    const fileInput = document.getElementById("file-input");
+    const sidebar = document.getElementById("sidebar");
+    const backdrop = document.getElementById("backdrop");
 
     const STORAGE_PLAYED_KEY = "cplayer_played_records";
     const STORAGE_LAST_EPISODE_KEY = "cplayer_last_episode";
     const STORAGE_LAST_TIME_KEY = "cplayer_last_time";
+
+    function toggleSidebar() {
+      sidebar.classList.toggle("open");
+      backdrop.classList.toggle("open");
+    }
+
+    function openFilePicker() {
+      // iOS 사파리 환경에서는 webkitdirectory 제거 후 실행
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      if (isIOS) {
+        fileInput.removeAttribute("webkitdirectory");
+        fileInput.removeAttribute("directory");
+      }
+      fileInput.click();
+    }
 
     function getPlayedRecords() {
       try {
@@ -307,8 +397,7 @@
       localStorage.setItem(STORAGE_PLAYED_KEY, JSON.stringify(records));
     }
 
-    // 폴더 선택 처리
-    folderInput.addEventListener("change", async (event) => {
+    fileInput.addEventListener("change", async (event) => {
       const files = Array.from(event.target.files);
       if (!files.length) return;
 
@@ -352,14 +441,16 @@
       }
     });
 
-    // 좌측 재생목록 렌더링
     function renderPlaylistUI() {
       playlistItemsContainer.innerHTML = "";
 
       playlist.forEach((item, index) => {
         const div = document.createElement("div");
         div.className = `playlist-item ${item.played ? "played" : ""} ${index === currentEpisodeIndex ? "active" : ""}`;
-        div.onclick = () => loadEpisode(index, true);
+        div.onclick = () => {
+          loadEpisode(index, true);
+          if (window.innerWidth <= 768) toggleSidebar();
+        };
 
         const checkMark = item.played ? "✔ " : "";
         div.innerHTML = `
@@ -370,24 +461,21 @@
       });
     }
 
-    // 에피소드 로드 및 준비
     async function loadEpisode(index, autoPlay = true, seekTime = 0) {
       if (index < 0 || index >= playlist.length) return;
       currentEpisodeIndex = index;
       const episode = playlist[index];
 
-      // 마지막 청취 위치 저장
       localStorage.setItem(STORAGE_LAST_EPISODE_KEY, episode.name);
+      currentTitleLabel.innerText = episode.name;
 
       renderPlaylistUI();
 
-      // MP3 연결
       audioPlayer.src = URL.createObjectURL(episode.mp3File);
       if (seekTime > 0) {
         audioPlayer.currentTime = seekTime;
       }
 
-      // JSON 자막 파싱
       const jsonText = await episode.jsonFile.text();
       try {
         currentScripts = JSON.parse(jsonText);
@@ -402,7 +490,6 @@
       }
     }
 
-    // 메인 스크립트 자막 렌더링
     function renderScriptsUI() {
       scriptContainer.innerHTML = "";
 
@@ -424,12 +511,10 @@
       });
     }
 
-    // 타임스탬프 동기화 및 학습 완료 추적
     audioPlayer.addEventListener("timeupdate", () => {
       const curTime = audioPlayer.currentTime;
       localStorage.setItem(STORAGE_LAST_TIME_KEY, curTime);
 
-      // 전체 분량의 80% 이상 청취 시 청취 완료로 표시
       if (audioPlayer.duration && curTime / audioPlayer.duration > 0.8) {
         const episode = playlist[currentEpisodeIndex];
         if (episode && !episode.played) {
@@ -439,7 +524,6 @@
         }
       }
 
-      // 싱크 하이라이트
       let activeIdx = -1;
       for (let i = 0; i < currentScripts.length; i++) {
         if (curTime >= currentScripts[i].start && curTime <= currentScripts[i].end) {
@@ -460,7 +544,6 @@
       });
     });
 
-    // 곡 종료 시 다음 곡 자동 재생
     audioPlayer.addEventListener("ended", () => {
       const episode = playlist[currentEpisodeIndex];
       if (episode) {
