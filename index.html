@@ -165,6 +165,7 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
+      position: relative;
     }
 
     .script-row {
@@ -255,7 +256,7 @@
       line-height: 1.6;
     }
 
-    /* 모바일 전용 UI */
+    /* 모바일 반응형 UI */
     @media (max-width: 768px) {
       #sidebar {
         position: absolute;
@@ -318,7 +319,7 @@
     </div>
   </div>
 
-  <!-- 메인 영역 -->
+  <!-- 메인 콘텐츠 영역 -->
   <div id="main-content">
     <div class="top-bar">
       <button class="btn" style="padding: 6px 10px;" onclick="toggleSidebar()">☰ 목록</button>
@@ -344,7 +345,6 @@
           </svg>
           재생목록
         </button>
-        <!-- PC용 폴더 선택 & 모바일용 다중 파일 선택 통합 인풋 -->
         <input type="file" id="file-input" multiple webkitdirectory directory style="display: none;" />
       </div>
     </div>
@@ -374,7 +374,6 @@
     }
 
     function openFilePicker() {
-      // iOS 사파리 환경에서는 webkitdirectory 제거 후 실행
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
       if (isIOS) {
         fileInput.removeAttribute("webkitdirectory");
@@ -511,6 +510,7 @@
       });
     }
 
+    // 타임스탬프 공백 구간 방어 및 화면 중앙 정밀 자동 스크롤
     audioPlayer.addEventListener("timeupdate", () => {
       const curTime = audioPlayer.currentTime;
       localStorage.setItem(STORAGE_LAST_TIME_KEY, curTime);
@@ -524,9 +524,14 @@
         }
       }
 
+      if (!currentScripts.length) return;
+
       let activeIdx = -1;
       for (let i = 0; i < currentScripts.length; i++) {
-        if (curTime >= currentScripts[i].start && curTime <= currentScripts[i].end) {
+        const segStart = currentScripts[i].start;
+        const segEnd = (i < currentScripts.length - 1) ? currentScripts[i + 1].start : currentScripts[i].end + 1.0;
+
+        if (curTime >= segStart && curTime < segEnd) {
           activeIdx = i;
           break;
         }
@@ -536,7 +541,16 @@
         if (i === activeIdx) {
           if (!el.classList.contains("active")) {
             el.classList.add("active");
-            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            
+            const containerHeight = scriptContainer.clientHeight;
+            const rowTop = el.offsetTop;
+            const rowHeight = el.clientHeight;
+            const targetScrollTop = rowTop - (containerHeight / 2) + (rowHeight / 2);
+
+            scriptContainer.scrollTo({
+              top: Math.max(0, targetScrollTop),
+              behavior: "smooth"
+            });
           }
         } else {
           el.classList.remove("active");
