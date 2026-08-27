@@ -161,11 +161,12 @@
     #script-container {
       flex: 1;
       overflow-y: auto;
-      padding: 20px 20px 100px 20px;
+      padding: 20px 20px 120px 20px;
       display: flex;
       flex-direction: column;
       gap: 14px;
       position: relative;
+      scroll-behavior: smooth;
     }
 
     .script-row {
@@ -174,7 +175,7 @@
       border-radius: 12px;
       border: 1px solid var(--border-color);
       cursor: pointer;
-      transition: all 0.2s;
+      transition: border-color 0.2s, background-color 0.2s;
     }
 
     .script-row.active {
@@ -221,6 +222,7 @@
       left: 0;
       right: 0;
       gap: 10px;
+      z-index: 50;
     }
 
     .audio-wrapper {
@@ -282,7 +284,7 @@
       }
 
       #script-container {
-        padding: 16px 14px 90px 14px;
+        padding: 16px 14px 100px 14px;
       }
 
       .backdrop {
@@ -354,6 +356,7 @@
     let playlist = [];
     let currentEpisodeIndex = -1;
     let currentScripts = [];
+    let lastActiveIdx = -1; // 스크롤 중복 호출 방지용 플래그
 
     const audioPlayer = document.getElementById("audio-player");
     const scriptContainer = document.getElementById("script-container");
@@ -463,6 +466,7 @@
     async function loadEpisode(index, autoPlay = true, seekTime = 0) {
       if (index < 0 || index >= playlist.length) return;
       currentEpisodeIndex = index;
+      lastActiveIdx = -1; // 초기화
       const episode = playlist[index];
 
       localStorage.setItem(STORAGE_LAST_EPISODE_KEY, episode.name);
@@ -510,11 +514,12 @@
       });
     }
 
-    // 타임스탬프 공백 구간 방어 및 화면 중앙 정밀 자동 스크롤
+    // 오디오 재생 중 타임스탬프 동기화 및 절대 좌표 정밀 스크롤
     audioPlayer.addEventListener("timeupdate", () => {
       const curTime = audioPlayer.currentTime;
       localStorage.setItem(STORAGE_LAST_TIME_KEY, curTime);
 
+      // 전체 80% 이상 청취 시 완료 기록
       if (audioPlayer.duration && curTime / audioPlayer.duration > 0.8) {
         const episode = playlist[currentEpisodeIndex];
         if (episode && !episode.played) {
@@ -526,10 +531,12 @@
 
       if (!currentScripts.length) return;
 
+      // 1. 현재 재생 시간에 일치하는 세그먼트 인덱스 탐색
       let activeIdx = -1;
       for (let i = 0; i < currentScripts.length; i++) {
         const segStart = currentScripts[i].start;
-        const segEnd = (i < currentScripts.length - 1) ? currentScripts[i + 1].start : currentScripts[i].end + 1.0;
+        // 다음 문장이 있으면 다음 문장 시작 전까지를 여유 구간으로 인정
+        const segEnd = (i < currentScripts.length - 1) ? currentScripts[i + 1].start : (currentScripts[i].end + 2.0);
 
         if (curTime >= segStart && curTime < segEnd) {
           activeIdx = i;
@@ -537,25 +544,30 @@
         }
       }
 
-      document.querySelectorAll(".script-row").forEach((el, i) => {
-        if (i === activeIdx) {
-          if (!el.classList.contains("active")) {
-            el.classList.add("active");
-            
-            const containerHeight = scriptContainer.clientHeight;
-            const rowTop = el.offsetTop;
-            const rowHeight = el.clientHeight;
-            const targetScrollTop = rowTop - (containerHeight / 2) + (rowHeight / 2);
+      // 2. 활성화된 문장이 바뀌었을 때만 화면 중앙 정렬 스크롤 실행
+      if (activeIdx !== -1 && activeIdx !== lastActiveIdx) {
+        lastActiveIdx = activeIdx;
 
-            scriptContainer.scrollTo({
-              top: Math.max(0, targetScrollTop),
+        document.querySelectorAll(".script-row").forEach((el, i) => {
+          if (i === activeIdx) {
+            el.classList.add("active");
+
+            // getBoundingClientRect 기반 정밀 상대좌표 연산
+            const containerRect = scriptContainer.getBoundingClientRect();
+            const rowRect = el.getBoundingClientRect();
+
+            // 부모 컨테이너 중앙에 문장이 정확히 오도록 offset 계산
+            const offset = (rowRect.top - containerRect.top) - (containerRect.height / 2) + (rowRect.height / 2);
+
+            scriptContainer.scrollBy({
+              top: offset,
               behavior: "smooth"
             });
+          } else {
+            el.classList.remove("active");
           }
-        } else {
-          el.classList.remove("active");
-        }
-      });
+        });
+      }
     });
 
     audioPlayer.addEventListener("ended", () => {
